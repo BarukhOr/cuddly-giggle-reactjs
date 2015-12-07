@@ -22,6 +22,17 @@ var App = React.createClass({
       order : {}
     }
   },
+  addToOrder : function(key){
+    // console.log("Key value = "+key);
+    //update the state object
+    this.state.order[key] = this.state.order[key] + 1 || 1;
+    // console.log("Order State: "+this.state.order[key]);
+
+    //set the state
+    // console.log(this.state.order);
+    // console.log(this.state.fishes);
+    this.setState({order : this.state.order});
+  },
   addFish : function(fish){
     var timestamp = (new Date()).getTime();
     //update the state object
@@ -29,18 +40,67 @@ var App = React.createClass({
     //set the state
     this.setState({fishes : this.state.fishes});
   },
+  loadSamples : function(){
+    this.setState({
+      fishes : require('./sample-fishes')
+    });
+  },
+  renderFish :function(key){
+    return <Fish key={key} index={key} details={this.state.fishes[key]} addToOrder={this.addToOrder}/>
+  },
   render:function(){
     return (
       <div className="catch-of-the-day">
-        <div>
-          <Header tagline="Fresh :) Seafood Market" />
+        <div className="menu">
+          <Header tagline="Fresh Seafood Market" />
+          <ul className="list-of-fishes">
+            {/*Get all the fishes available in the state and create an array
+              for each one using map? i dont really get this part
+              Afterwards for each 'array'/object/fish run "this.renderFish"
+             */}
+            {Object.keys(this.state.fishes).map(this.renderFish)}
+          </ul>
         </div>
-        <Order/>
-        <Inventory addFish={this.addFish}/>
+        <Order fishes={this.state.fishes} order={this.state.order}/>
+        <Inventory addFish={this.addFish} loadSamples={this.loadSamples}/>
       </div>
     )
   }
 });
+
+/*
+  Add Fish
+  <Fish />
+*/
+var Fish = React.createClass(({
+  onButtonClick : function(){
+    {/*console.log("Going to use "+this.props.index+ " at some point");*/}
+    var key = this.props.index;
+    this.props.addToOrder(key);
+  },
+  render : function(){
+    var details = this.props.details;
+    var isAvailable = (details.status === 'available' ? true : false);
+    var ButtonText = (isAvailable ? ' Add To Order' : 'Sold Out!');
+
+    return (
+      <div>
+        {/*<li>Index: {this.props.index}</li>*/}
+        <li className="menu-fish">
+          {/*<img src={this.props.details.image} />*/}
+          <img src={details.image} alt={details.name}/>
+          <h3 className="fish-name">
+            {details.name}
+            {/*<span className="price">{details.price}</span>*/}
+            <span className="price">{helper.formatPrice(details.price)}</span>
+          </h3>
+          <p>{details.desc}</p>
+          <button disabled={!isAvailable} onClick={this.onButtonClick}>{ButtonText}</button>
+        </li>
+      </div>
+    )
+  }
+}))
 
 /*
   Add Fish Form
@@ -84,6 +144,7 @@ var AddFishForm = React.createClass({
 */
 var Header = React.createClass({
   render:function(){
+
     return(
       <header className="top">
         <h1>Catch
@@ -92,7 +153,7 @@ var Header = React.createClass({
           <span className="the">the</span>
         </span>
         Day</h1>
-        <h3 className="tagline">{this.props.tagline}</h3>
+        <h3 className="tagline"><span>{this.props.tagline}</span></h3>
       </header>
     )
   }
@@ -102,9 +163,51 @@ var Header = React.createClass({
   Order
 */
 var Order = React.createClass({
-  render:function(){
+  renderOrder :function(key){
+    var fish = this.props.fishes[key];
+    var count = this.props.order[key];
+
+    if(!fish){
+      return <li key={key}>Sorry, fish is no longer available!</li>
+    }
+
     return(
-      <p>Order</p>
+      <li>
+        {count} lbs
+        {fish.name}
+        <span className="price">{helper.formatPrice(count*fish.price)}</span>
+      </li>
+    )
+  },
+  render:function(){
+    var orderIds = Object.keys(this.props.order);
+    console.log("These are the keys in the order array: "+orderIds);
+
+    var total = orderIds.reduce((prevTotal, key)=>{
+      // console.log(this.props.fishes);
+      // console.log(this.props.fishes[fish1]);
+      var fish = this.props.fishes[key];
+      var count = this.props.order[key];
+      var isAvailable = fish && fish.status === 'available';
+
+      if(fish && isAvailable){
+        return prevTotal + (count * parseInt(fish.price) || 0);
+      }
+      console.log("previous total shenanigans: " + prevTotal);
+      return prevTotal;
+    }, 0);
+    return(
+      <div>
+        <h2 className="order-title">Your Order</h2>
+        <ul className="order">
+          {/*{orderIds.map(this.renderOrder)}*/}
+          {orderIds.map(this.renderOrder)}
+          <li className="total">
+            <strong>Total:</strong>
+            {helper.formatPrice(total)}
+          </li>
+        </ul>
+      </div>
     )
   }
 });
@@ -119,6 +222,8 @@ var Inventory = React.createClass({
         <h2>Inventory</h2>
         <AddFishForm {...this.props}/>
         {/*<AddFishForm addFish={this.addFish}/>*/}
+        <h5>Dear Please Dare the Deer to click the button</h5>
+        <button onClick={this.props.loadSamples}>Load Sample Fishes</button>
       </div>
     )
   }
