@@ -10,27 +10,50 @@ var Route = ReactRouter.Route;
 var Navigation = ReactRouter.Navigation; //mixin
 var History = ReactRouter.History;
 
+//Firebase
+var Rebase = require('re-base');
+var base = Rebase.createClass('https://crackling-inferno-9855.firebaseio.com/');
 
+var Catalyst = require('react-catalyst');
 
 /*
   App
 */
 var App = React.createClass({
-  getInitialState:function(){
+  mixins : [Catalyst.LinkedStateMixin],
+  getInitialState : function(){
     return {
       fishes : {},
       order : {}
     }
   },
+  componentDidMount : function(){
+    console.log("Component Mounted");
+    //Promises API :O supposedly rebase uses it ... now just have to learn what the heck that means xD
+    base.syncState(this.props.params.storeId+'/fishes',{
+      context : this,
+      state : 'fishes'
+    });
+
+    var localStorageRef = localStorage.getItem('order-'+this.props.params.storeId);
+    if(localStorageRef){
+      //update our component state to reflect what is in localStorage
+      this.setState({
+        //unstringify
+        order : JSON.parse(localStorageRef)
+      });
+    }
+  },
+  componentWillUpdate : function (nextProps, nextState){
+    console.log(nextState);
+    {/*localStorage.setItem('key',data)*/}
+    localStorage.setItem('order-'+this.props.params.storeId, JSON.stringify(nextState.order));
+
+  },
   addToOrder : function(key){
-    // console.log("Key value = "+key);
     //update the state object
     this.state.order[key] = this.state.order[key] + 1 || 1;
-    // console.log("Order State: "+this.state.order[key]);
-
     //set the state
-    // console.log(this.state.order);
-    // console.log(this.state.fishes);
     this.setState({order : this.state.order});
   },
   addFish : function(fish){
@@ -74,7 +97,6 @@ var App = React.createClass({
 */
 var Fish = React.createClass(({
   onButtonClick : function(){
-    {/*console.log("Going to use "+this.props.index+ " at some point");*/}
     var key = this.props.index;
     this.props.addToOrder(key);
   },
@@ -118,7 +140,6 @@ var AddFishForm = React.createClass({
       image :this.refs.image.value
     }
     //3. Add the fish to the App State
-    console.log(fish);
     this.props.addFish(fish); //asdf
     this.refs.fishForm.reset();
   },
@@ -172,7 +193,7 @@ var Order = React.createClass({
     }
 
     return(
-      <li>
+      <li key={key}>
         {count} lbs
         {fish.name}
         <span className="price">{helper.formatPrice(count*fish.price)}</span>
@@ -181,11 +202,7 @@ var Order = React.createClass({
   },
   render:function(){
     var orderIds = Object.keys(this.props.order);
-    console.log("These are the keys in the order array: "+orderIds);
-
     var total = orderIds.reduce((prevTotal, key)=>{
-      // console.log(this.props.fishes);
-      // console.log(this.props.fishes[fish1]);
       var fish = this.props.fishes[key];
       var count = this.props.order[key];
       var isAvailable = fish && fish.status === 'available';
@@ -193,14 +210,12 @@ var Order = React.createClass({
       if(fish && isAvailable){
         return prevTotal + (count * parseInt(fish.price) || 0);
       }
-      console.log("previous total shenanigans: " + prevTotal);
       return prevTotal;
     }, 0);
     return(
       <div>
         <h2 className="order-title">Your Order</h2>
         <ul className="order">
-          {/*{orderIds.map(this.renderOrder)}*/}
           {orderIds.map(this.renderOrder)}
           <li className="total">
             <strong>Total:</strong>
@@ -216,12 +231,19 @@ var Order = React.createClass({
   Inventory
 */
 var Inventory = React.createClass({
+  rednerInventory : function(key){
+    return (
+      <div className="fish-edit" key={key}>
+        <input type="text" valueLink={linkState('fishes.'+key+'.name')} />
+      </div>    
+    )
+  },
   render:function(){
     return(
       <div>
         <h2>Inventory</h2>
+        {Object.keys(this.props.fishes).map(this.renderInventory)}
         <AddFishForm {...this.props}/>
-        {/*<AddFishForm addFish={this.addFish}/>*/}
         <h5>Dear Please Dare the Deer to click the button</h5>
         <button onClick={this.props.loadSamples}>Load Sample Fishes</button>
       </div>
@@ -235,9 +257,6 @@ var Inventory = React.createClass({
 var StorePicker = React.createClass({
   mixins:[History],
   goToStore:function(event){
-    console.log("Oracle: This is Ora to Robin. A Form has been submitted. I Repeat a form has been submitted!");
-    console.log("Batman: Confirmed. Object Type: "+this.refs.storeId+". For the record the value of said object is: "+this.refs.storeId.value);
-
     event.preventDefault();
     //Get the data from the input
     var storeId = this.refs.storeId.value;
@@ -248,7 +267,6 @@ var StorePicker = React.createClass({
     var name = "The Central Office";
     return(
       <form className="store-selector" onSubmit={this.goToStore}>
-        {/*Just testing Comment Functionality*/}
         <h2>Welcome to {name}. Please Select a Store </h2>
         <input type="text" ref="storeId" defaultValue={helper.getFunName()} required />
         <input type="Submit" />
